@@ -1,6 +1,164 @@
 ﻿create database Dairy_Farms;
-use Dairy_Farms;
 
+
+
+
+
+use Dairy_Farms;
+-- Populate with 10 years of data (2020-2030)
+DECLARE @StartDate DATE = '2020-01-01';
+DECLARE @EndDate DATE = '2030-12-31';
+
+WHILE @StartDate <= @EndDate
+BEGIN
+    INSERT INTO DimDate (
+        DateKey, FullDate, Year, YearQuarter, YearMonth, YearMonthName,
+        Quarter, QuarterName, Month, MonthName, MonthShort,
+        Week, WeekOfYear, DayOfMonth, DayOfWeek, DayName, DayShort,
+        IsWeekend, IsWorkDay, Season,
+        IsPeakProductionSeason, IsBreedingSeason, IsCalvingSeason,
+        FiscalYear, FiscalQuarter
+    )
+    VALUES (
+        -- Key and Date
+        CAST(FORMAT(@StartDate, 'yyyyMMdd') AS INT),
+        @StartDate,
+        
+        -- Year components
+        YEAR(@StartDate),
+        'Y' + CAST(YEAR(@StartDate) AS VARCHAR(4)) + '-Q' + CAST(DATEPART(QUARTER, @StartDate) AS VARCHAR(1)),
+        YEAR(@StartDate) * 100 + MONTH(@StartDate),
+        FORMAT(@StartDate, 'yyyy-MMM'),
+        
+        -- Quarter
+        DATEPART(QUARTER, @StartDate),
+        'Q' + CAST(DATEPART(QUARTER, @StartDate) AS VARCHAR(1)),
+        
+        -- Month
+        MONTH(@StartDate),
+        FORMAT(@StartDate, 'MMMM'),
+        FORMAT(@StartDate, 'MMM'),
+        
+        -- Week
+        DATEPART(WEEK, @StartDate),
+        'Wk-' + RIGHT('0' + CAST(DATEPART(WEEK, @StartDate) AS VARCHAR(2)), 2),
+        
+        -- Day
+        DAY(@StartDate),
+        DATEPART(WEEKDAY, @StartDate),
+        FORMAT(@StartDate, 'dddd'),
+        FORMAT(@StartDate, 'ddd'),
+        
+        -- Weekend flag
+        CASE WHEN DATEPART(WEEKDAY, @StartDate) IN (1, 7) THEN 1 ELSE 0 END,
+        CASE WHEN DATEPART(WEEKDAY, @StartDate) NOT IN (1, 7) THEN 1 ELSE 0 END,
+        
+        -- Season (agricultural)
+        CASE 
+            WHEN MONTH(@StartDate) IN (3, 4, 5) THEN 'Spring'
+            WHEN MONTH(@StartDate) IN (6, 7, 8) THEN 'Summer'
+            WHEN MONTH(@StartDate) IN (9, 10, 11) THEN 'Fall'
+            WHEN MONTH(@StartDate) IN (12, 1, 2) THEN 'Winter'
+        END,
+        
+        -- Dairy-specific seasons (adjust based on your location)
+        CASE WHEN MONTH(@StartDate) IN (4, 5, 6) THEN 1 ELSE 0 END, -- Peak production (spring flush)
+        CASE WHEN MONTH(@StartDate) IN (9, 10, 11) THEN 1 ELSE 0 END, -- Breeding season (fall)
+        CASE WHEN MONTH(@StartDate) IN (2, 3, 4) THEN 1 ELSE 0 END, -- Calving season (spring)
+        
+        -- Fiscal year (if your fiscal year starts in July)
+        CASE WHEN MONTH(@StartDate) >= 7 
+             THEN YEAR(@StartDate) + 1 
+             ELSE YEAR(@StartDate) 
+        END,
+        
+        -- Fiscal quarter
+        CASE 
+            WHEN MONTH(@StartDate) IN (7, 8, 9) THEN 1
+            WHEN MONTH(@StartDate) IN (10, 11, 12) THEN 2
+            WHEN MONTH(@StartDate) IN (1, 2, 3) THEN 3
+            WHEN MONTH(@StartDate) IN (4, 5, 6) THEN 4
+        END
+    );
+    
+    SET @StartDate = DATEADD(DAY, 1, @StartDate);
+END;
+
+-- Add indexes for performance
+CREATE INDEX IX_DimDate_FullDate ON DimDate(FullDate);
+CREATE INDEX IX_DimDate_Year ON DimDate(Year);
+CREATE INDEX IX_DimDate_YearMonth ON DimDate(YearMonth);
+
+
+
+
+-------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- Create comprehensive date dimension table in SQL
+-- OPTIMIZED DATE DIMENSION FOR YOUR DAIRY FARM
+CREATE TABLE DimDate (
+    DateKey INT PRIMARY KEY,              -- Format: YYYYMMDD (e.g., 20260226)
+    FullDate DATE NOT NULL,
+    -- Year components
+    Year INT NOT NULL,
+    YearQuarter VARCHAR(8) NOT NULL,      -- e.g., '2026-Q1'
+    YearMonth INT NOT NULL,                -- e.g., 202602
+    YearMonthName VARCHAR(15) NOT NULL,    -- e.g., '2026-Feb'
+    
+    -- Quarter components
+    Quarter INT NOT NULL,
+    QuarterName VARCHAR(10) NOT NULL,      -- e.g., 'Q1'
+    
+    -- Month components
+    Month INT NOT NULL,
+    MonthName VARCHAR(20) NOT NULL,        -- e.g., 'February'
+    MonthShort VARCHAR(3) NOT NULL,        -- e.g., 'Feb'
+    
+    -- Week components
+    Week INT NOT NULL,                      -- Week number
+    WeekOfYear VARCHAR(10) NOT NULL,        -- e.g., 'Wk-08'
+    
+    -- Day components
+    DayOfMonth INT NOT NULL,
+    DayOfWeek INT NOT NULL,
+    DayName VARCHAR(20) NOT NULL,           -- e.g., 'Monday'
+    DayShort VARCHAR(3) NOT NULL,           -- e.g., 'Mon'
+    
+    -- Flags
+    IsWeekend BIT NOT NULL DEFAULT 0,
+    IsHoliday BIT NOT NULL DEFAULT 0,
+    IsWorkDay BIT NOT NULL DEFAULT 1,
+    
+    -- Agricultural seasons (important for dairy!)
+    Season VARCHAR(10) NOT NULL,            -- Spring/Summer/Fall/Winter
+    -- Dairy-specific periods
+    IsPeakProductionSeason BIT DEFAULT 0,
+    IsBreedingSeason BIT DEFAULT 0,
+    IsCalvingSeason BIT DEFAULT 0,
+    
+    -- Fiscal calendar (if different from calendar)
+    FiscalYear INT,
+    FiscalQuarter INT,
+    FiscalPeriod VARCHAR(10),
+    
+    -- Audit
+    CreatedDate DATETIME DEFAULT GETDATE()
+);
 
 -- ============================================
 -- CORE TABLES (No Foreign Dependencies)
