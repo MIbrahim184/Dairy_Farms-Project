@@ -1,165 +1,54 @@
 ﻿create database Dairy_Farms;
 
-
-
-
-
 use Dairy_Farms;
--- Populate with 10 years of data (2020-2030)
-DECLARE @StartDate DATE = '2020-01-01';
-DECLARE @EndDate DATE = '2030-12-31';
 
-WHILE @StartDate <= @EndDate
+-- ENHANCED SIMPLE DATE DIMENSION
+CREATE TABLE DimDate (
+    DateKey INT PRIMARY KEY,
+    FullDate DATE NOT NULL,
+    Year INT NOT NULL,
+    YearMonth INT NOT NULL,        -- Added: 202601, 202602, etc.
+    Quarter INT NOT NULL,
+    Month INT NOT NULL,
+    MonthName VARCHAR(20) NOT NULL,
+    Week INT NOT NULL,
+    DayOfMonth INT NOT NULL,
+    DayOfWeek INT NOT NULL,
+    DayName VARCHAR(20) NOT NULL,
+    IsWeekend BIT NOT NULL,
+    Season VARCHAR(10) NOT NULL,
+    IsPeakProduction BIT NOT NULL
+);
+select * from DimDate;
+-- Populate with 10 years
+DECLARE @StartDate DATE = '2020-01-01';
+WHILE @StartDate <= '2030-12-31'
 BEGIN
-    INSERT INTO DimDate (
-        DateKey, FullDate, Year, YearQuarter, YearMonth, YearMonthName,
-        Quarter, QuarterName, Month, MonthName, MonthShort,
-        Week, WeekOfYear, DayOfMonth, DayOfWeek, DayName, DayShort,
-        IsWeekend, IsWorkDay, Season,
-        IsPeakProductionSeason, IsBreedingSeason, IsCalvingSeason,
-        FiscalYear, FiscalQuarter
-    )
+    INSERT INTO DimDate
     VALUES (
-        -- Key and Date
         CAST(FORMAT(@StartDate, 'yyyyMMdd') AS INT),
         @StartDate,
-        
-        -- Year components
         YEAR(@StartDate),
-        'Y' + CAST(YEAR(@StartDate) AS VARCHAR(4)) + '-Q' + CAST(DATEPART(QUARTER, @StartDate) AS VARCHAR(1)),
-        YEAR(@StartDate) * 100 + MONTH(@StartDate),
-        FORMAT(@StartDate, 'yyyy-MMM'),
-        
-        -- Quarter
+        YEAR(@StartDate) * 100 + MONTH(@StartDate),  -- YearMonth
         DATEPART(QUARTER, @StartDate),
-        'Q' + CAST(DATEPART(QUARTER, @StartDate) AS VARCHAR(1)),
-        
-        -- Month
         MONTH(@StartDate),
         FORMAT(@StartDate, 'MMMM'),
-        FORMAT(@StartDate, 'MMM'),
-        
-        -- Week
         DATEPART(WEEK, @StartDate),
-        'Wk-' + RIGHT('0' + CAST(DATEPART(WEEK, @StartDate) AS VARCHAR(2)), 2),
-        
-        -- Day
         DAY(@StartDate),
         DATEPART(WEEKDAY, @StartDate),
         FORMAT(@StartDate, 'dddd'),
-        FORMAT(@StartDate, 'ddd'),
-        
-        -- Weekend flag
-        CASE WHEN DATEPART(WEEKDAY, @StartDate) IN (1, 7) THEN 1 ELSE 0 END,
-        CASE WHEN DATEPART(WEEKDAY, @StartDate) NOT IN (1, 7) THEN 1 ELSE 0 END,
-        
-        -- Season (agricultural)
-        CASE 
-            WHEN MONTH(@StartDate) IN (3, 4, 5) THEN 'Spring'
-            WHEN MONTH(@StartDate) IN (6, 7, 8) THEN 'Summer'
-            WHEN MONTH(@StartDate) IN (9, 10, 11) THEN 'Fall'
-            WHEN MONTH(@StartDate) IN (12, 1, 2) THEN 'Winter'
-        END,
-        
-        -- Dairy-specific seasons (adjust based on your location)
-        CASE WHEN MONTH(@StartDate) IN (4, 5, 6) THEN 1 ELSE 0 END, -- Peak production (spring flush)
-        CASE WHEN MONTH(@StartDate) IN (9, 10, 11) THEN 1 ELSE 0 END, -- Breeding season (fall)
-        CASE WHEN MONTH(@StartDate) IN (2, 3, 4) THEN 1 ELSE 0 END, -- Calving season (spring)
-        
-        -- Fiscal year (if your fiscal year starts in July)
-        CASE WHEN MONTH(@StartDate) >= 7 
-             THEN YEAR(@StartDate) + 1 
-             ELSE YEAR(@StartDate) 
-        END,
-        
-        -- Fiscal quarter
-        CASE 
-            WHEN MONTH(@StartDate) IN (7, 8, 9) THEN 1
-            WHEN MONTH(@StartDate) IN (10, 11, 12) THEN 2
-            WHEN MONTH(@StartDate) IN (1, 2, 3) THEN 3
-            WHEN MONTH(@StartDate) IN (4, 5, 6) THEN 4
-        END
+        CASE WHEN DATEPART(WEEKDAY, @StartDate) IN (1,7) THEN 1 ELSE 0 END,
+        CASE WHEN MONTH(@StartDate) IN (3,4,5) THEN 'Spring'
+             WHEN MONTH(@StartDate) IN (6,7,8) THEN 'Summer'
+             WHEN MONTH(@StartDate) IN (9,10,11) THEN 'Fall'
+             ELSE 'Winter' END,
+        CASE WHEN MONTH(@StartDate) IN (4,5,6) THEN 1 ELSE 0 END
     );
-    
     SET @StartDate = DATEADD(DAY, 1, @StartDate);
 END;
 
--- Add indexes for performance
-CREATE INDEX IX_DimDate_FullDate ON DimDate(FullDate);
-CREATE INDEX IX_DimDate_Year ON DimDate(Year);
+-- Add index for performance
 CREATE INDEX IX_DimDate_YearMonth ON DimDate(YearMonth);
-
-
-
-
--------------------------------------------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
--- Create comprehensive date dimension table in SQL
--- OPTIMIZED DATE DIMENSION FOR YOUR DAIRY FARM
-CREATE TABLE DimDate (
-    DateKey INT PRIMARY KEY,              -- Format: YYYYMMDD (e.g., 20260226)
-    FullDate DATE NOT NULL,
-    -- Year components
-    Year INT NOT NULL,
-    YearQuarter VARCHAR(8) NOT NULL,      -- e.g., '2026-Q1'
-    YearMonth INT NOT NULL,                -- e.g., 202602
-    YearMonthName VARCHAR(15) NOT NULL,    -- e.g., '2026-Feb'
-    
-    -- Quarter components
-    Quarter INT NOT NULL,
-    QuarterName VARCHAR(10) NOT NULL,      -- e.g., 'Q1'
-    
-    -- Month components
-    Month INT NOT NULL,
-    MonthName VARCHAR(20) NOT NULL,        -- e.g., 'February'
-    MonthShort VARCHAR(3) NOT NULL,        -- e.g., 'Feb'
-    
-    -- Week components
-    Week INT NOT NULL,                      -- Week number
-    WeekOfYear VARCHAR(10) NOT NULL,        -- e.g., 'Wk-08'
-    
-    -- Day components
-    DayOfMonth INT NOT NULL,
-    DayOfWeek INT NOT NULL,
-    DayName VARCHAR(20) NOT NULL,           -- e.g., 'Monday'
-    DayShort VARCHAR(3) NOT NULL,           -- e.g., 'Mon'
-    
-    -- Flags
-    IsWeekend BIT NOT NULL DEFAULT 0,
-    IsHoliday BIT NOT NULL DEFAULT 0,
-    IsWorkDay BIT NOT NULL DEFAULT 1,
-    
-    -- Agricultural seasons (important for dairy!)
-    Season VARCHAR(10) NOT NULL,            -- Spring/Summer/Fall/Winter
-    -- Dairy-specific periods
-    IsPeakProductionSeason BIT DEFAULT 0,
-    IsBreedingSeason BIT DEFAULT 0,
-    IsCalvingSeason BIT DEFAULT 0,
-    
-    -- Fiscal calendar (if different from calendar)
-    FiscalYear INT,
-    FiscalQuarter INT,
-    FiscalPeriod VARCHAR(10),
-    
-    -- Audit
-    CreatedDate DATETIME DEFAULT GETDATE()
-);
-
 -- ============================================
 -- CORE TABLES (No Foreign Dependencies)
 -- ============================================
@@ -334,6 +223,9 @@ CREATE TABLE Breeding (
     FOREIGN KEY (Bull_id) REFERENCES Bull(Bull_id),
     FOREIGN KEY (Semen_id) REFERENCES Semen(Semen_id)
 );
+CREATE INDEX IX_breeding_cow_date ON Breeding(cow_id, Breeding_date);
+
+
 -- Pregnancy table (was missing IDENTITY)
 CREATE TABLE Pregnancy (
     Pregnancy_id INT IDENTITY(1,1) PRIMARY KEY,
@@ -357,6 +249,8 @@ CREATE TABLE milk_production (
     milk_liters INT,
     FOREIGN KEY (Cow_id) REFERENCES Cow(Cow_id)
 );
+CREATE INDEX IX_milk_production_cow_date ON milk_production(cow_id, record_date);
+
 
 -- Milk Quality Test table (already correct)
 CREATE TABLE Milk_Quality_Test (
@@ -383,6 +277,8 @@ CREATE TABLE feed_consumption (
     FOREIGN KEY (Cow_id) REFERENCES Cow(Cow_id),
     FOREIGN KEY (feed_id) REFERENCES feed(feed_id)
 );
+CREATE INDEX IX_feed_consumption_cow_date ON feed_consumption(cow_id, feed_date);
+
 
 -- Health Record table (was missing IDENTITY)
 CREATE TABLE health_record (
@@ -395,6 +291,8 @@ CREATE TABLE health_record (
     recovery_status VARCHAR(30),
     FOREIGN KEY (Cow_id) REFERENCES Cow(Cow_id)
 );
+CREATE INDEX IX_health_record_cow_date ON health_record(cow_id, visit_date);
+
 
 -- Vaccination table (was missing IDENTITY)
 CREATE TABLE Vaccination (
@@ -448,24 +346,26 @@ CREATE TABLE Animal_Sale (
     sale_price DECIMAL(10,2),
     buyer_name VARCHAR(100)
 );
-
--- Weight History table (was missing IDENTITY)
+-- Create new unified weight history table with Staff foreign key (with SET NULL option)
 CREATE TABLE Weight_History (
     weight_id INT IDENTITY(1,1) PRIMARY KEY,
     animal_type VARCHAR(10) NOT NULL, -- 'Cow', 'Bull', 'Calf'
     animal_id INT NOT NULL,
     weight DECIMAL(6,2) NOT NULL,
-    recorded_date DATE NOT NULL,       -- Defined only once
+    recorded_date DATE NOT NULL,
     recorded_by INT NULL,
     notes VARCHAR(200) NULL,
     -- Add check constraint to ensure valid animal types
-    CONSTRAINT CHK_Animal_Type CHECK (animal_type IN ('Cow', 'Bull', 'Calf'))
-    -- Removed the duplicate recorded_date line
+    CONSTRAINT CHK_Animal_Type CHECK (animal_type IN ('Cow', 'Bull', 'Calf')),
+    -- Add foreign key constraint with SET NULL on delete
+    CONSTRAINT FK_Weight_History_Staff FOREIGN KEY (recorded_by) 
+        REFERENCES Staff(staff_id) ON DELETE SET NULL
 );
 
 -- Add indexes for performance
 CREATE INDEX IX_Weight_History_Animal ON Weight_History(animal_type, animal_id);
 CREATE INDEX IX_Weight_History_Date ON Weight_History(recorded_date);
+CREATE INDEX IX_Weight_History_RecordedBy ON Weight_History(recorded_by);
 
 -- Expense table (was missing IDENTITY)
 CREATE TABLE Expense (
@@ -475,6 +375,8 @@ CREATE TABLE Expense (
     amount DECIMAL(10,2),
     remarks VARCHAR(200)
 );
+CREATE INDEX IX_Expense_date ON Expense(expense_date);
+
 
 -- Income table (was missing IDENTITY)
 CREATE TABLE Income (
@@ -484,6 +386,8 @@ CREATE TABLE Income (
     amount DECIMAL(10,2),
     reference_id INT
 );
+CREATE INDEX IX_Income_date ON Income(income_date);
+
 
 -- Alerts table (was missing IDENTITY)
 CREATE TABLE Alerts (
@@ -1561,31 +1465,31 @@ INSERT INTO Weight_History (animal_type, animal_id, weight, recorded_date, recor
 -- ============================================
 -- BULLS (5 bulls - 4 records each = 20 entries)
 -- ============================================
--- Bull #1 - Thunder
+-- Bull #1 - Thunder (recorded_by: 2-Sarah Johnson, 3-Mike Wilson)
 ('Bull', 1, 820.0, '2025-03-15', 2, 'Spring weigh-in'),
 ('Bull', 1, 855.0, '2025-06-20', 2, 'Pre-breeding season'),
 ('Bull', 1, 885.0, '2025-09-25', 3, 'End of breeding season'),
 ('Bull', 1, 910.0, '2026-01-15', 2, 'Winter weight'),
 
--- Bull #2 - Lightning
+-- Bull #2 - Lightning (recorded_by: 3-Mike Wilson, 2-Sarah Johnson)
 ('Bull', 2, 695.0, '2025-04-10', 3, 'Purchased weight'),
 ('Bull', 2, 730.0, '2025-07-15', 2, 'Summer weigh-in'),
 ('Bull', 2, 765.0, '2025-10-20', 2, 'Fall weight'),
 ('Bull', 2, 795.0, '2026-02-10', 3, 'Current weight'),
 
--- Bull #3 - Ace
+-- Bull #3 - Ace (recorded_by: 2-Sarah Johnson, 6-Lisa Davis)
 ('Bull', 3, 780.0, '2025-05-05', 2, 'Spring'),
 ('Bull', 3, 815.0, '2025-08-10', 6, 'Summer'),
 ('Bull', 3, 850.0, '2025-11-15', 2, 'Fall'),
 ('Bull', 3, 880.0, '2026-02-20', 2, 'Late winter'),
 
--- Bull #4 - King
+-- Bull #4 - King (recorded_by: 3-Mike Wilson, 2-Sarah Johnson, 6-Lisa Davis)
 ('Bull', 4, 650.0, '2025-06-15', 3, 'Young bull'),
 ('Bull', 4, 685.0, '2025-09-18', 2, 'Growing well'),
 ('Bull', 4, 715.0, '2025-12-22', 6, 'Winter'),
 ('Bull', 4, 740.0, '2026-03-05', 2, 'Spring approaching'),
 
--- Bull #5 - Major
+-- Bull #5 - Major (recorded_by: 2-Sarah Johnson, 3-Mike Wilson)
 ('Bull', 5, 720.0, '2025-07-20', 2, 'Mid-summer'),
 ('Bull', 5, 755.0, '2025-10-25', 3, 'Fall'),
 ('Bull', 5, 785.0, '2026-01-28', 2, 'Winter'),
@@ -1594,92 +1498,92 @@ INSERT INTO Weight_History (animal_type, animal_id, weight, recorded_date, recor
 -- ============================================
 -- COWS (18 cows - 3 records each = 54 entries)
 -- ============================================
--- Cow #1 - Bella
+-- Cow #1 - Bella (recorded_by: 2-Sarah Johnson, 3-Mike Wilson)
 ('Cow', 1, 650.5, '2025-08-15', 2, 'Late lactation'),
 ('Cow', 1, 658.0, '2025-11-20', 3, 'Drying off'),
 ('Cow', 1, 665.5, '2026-02-18', 2, 'Close-up dry cow'),
 
--- Cow #2 - Daisy
+-- Cow #2 - Daisy (recorded_by: 2-Sarah Johnson, 6-Lisa Davis)
 ('Cow', 2, 680.0, '2025-08-10', 2, 'Mid-lactation'),
 ('Cow', 2, 688.5, '2025-11-15', 6, 'Late lactation'),
 ('Cow', 2, 695.0, '2026-02-20', 2, 'Pre-calving'),
 
--- Cow #3 - Molly
+-- Cow #3 - Molly (recorded_by: 3-Mike Wilson, 2-Sarah Johnson)
 ('Cow', 3, 520.5, '2025-08-05', 3, 'Jersey - milking'),
 ('Cow', 3, 528.0, '2025-11-10', 2, 'Holding weight'),
 ('Cow', 3, 533.5, '2026-02-15', 3, 'Pregnant'),
 
--- Cow #4 - Lily
+-- Cow #4 - Lily (recorded_by: 2-Sarah Johnson, 6-Lisa Davis)
 ('Cow', 4, 710.3, '2025-08-12', 2, 'Heavy producer'),
 ('Cow', 4, 718.5, '2025-11-18', 2, 'Maintaining'),
 ('Cow', 4, 726.0, '2026-02-22', 6, 'Late pregnancy'),
 
--- Cow #5 - Rosie
+-- Cow #5 - Rosie (recorded_by: 3-Mike Wilson, 2-Sarah Johnson)
 ('Cow', 5, 590.8, '2025-08-08', 3, 'Ayrshire'),
 ('Cow', 5, 598.0, '2025-11-12', 2, 'Good condition'),
 ('Cow', 5, 605.5, '2026-02-16', 2, 'Expected calving soon'),
 
--- Cow #6 - Bessie
+-- Cow #6 - Bessie (recorded_by: 2-Sarah Johnson, 3-Mike Wilson)
 ('Cow', 6, 695.0, '2025-08-20', 2, 'Dry period start'),
 ('Cow', 6, 705.5, '2025-11-25', 3, 'Mid dry period'),
 ('Cow', 6, 715.0, '2026-02-25', 2, 'Close-up'),
 
--- Cow #7 - Clover
+-- Cow #7 - Clover (recorded_by: 2-Sarah Johnson, 6-Lisa Davis)
 ('Cow', 7, 510.0, '2025-08-18', 2, 'Jersey'),
 ('Cow', 7, 518.5, '2025-11-22', 6, 'Holding'),
 ('Cow', 7, 525.0, '2026-02-24', 2, 'Pregnant'),
 
--- Cow #8 - Maple
+-- Cow #8 - Maple (recorded_by: 3-Mike Wilson, 2-Sarah Johnson)
 ('Cow', 8, 625.5, '2025-08-22', 3, 'Brown Swiss'),
 ('Cow', 8, 635.0, '2025-11-26', 2, 'Gaining'),
 ('Cow', 8, 644.5, '2026-02-26', 2, 'Good weight'),
 
--- Cow #9 - Buttercup
+-- Cow #9 - Buttercup (recorded_by: 2-Sarah Johnson, 3-Mike Wilson)
 ('Cow', 9, 540.0, '2025-08-25', 2, 'First calf heifer'),
 ('Cow', 9, 550.5, '2025-11-28', 3, 'Growing'),
 ('Cow', 9, 560.0, '2026-02-28', 2, 'Milking well'),
 
--- Cow #10 - Stella (Buffalo)
+-- Cow #10 - Stella (Buffalo) (recorded_by: 2-Sarah Johnson, 6-Lisa Davis)
 ('Cow', 10, 580.0, '2025-08-15', 2, 'Buffalo'),
 ('Cow', 10, 588.5, '2025-11-20', 6, 'Good condition'),
 ('Cow', 10, 597.0, '2026-02-22', 2, 'Healthy'),
 
--- Cow #11 - Penny
+-- Cow #11 - Penny (recorded_by: 2-Sarah Johnson, 3-Mike Wilson)
 ('Cow', 11, 720.0, '2025-08-10', 2, 'Senior cow'),
 ('Cow', 11, 728.5, '2025-11-15', 2, 'Holding weight'),
 ('Cow', 11, 736.0, '2026-02-18', 3, 'Excellent condition'),
 
--- Cow #12 - Hazel
+-- Cow #12 - Hazel (recorded_by: 2-Sarah Johnson, 3-Mike Wilson)
 ('Cow', 12, 495.0, '2025-08-05', 2, 'Young cow'),
 ('Cow', 12, 505.5, '2025-11-10', 3, 'Growing'),
 ('Cow', 12, 515.0, '2026-02-15', 2, 'Filling out'),
 
--- Cow #13 - Ruby
+-- Cow #13 - Ruby (recorded_by: 6-Lisa Davis, 2-Sarah Johnson)
 ('Cow', 13, 480.0, '2025-08-12', 6, 'First lactation'),
 ('Cow', 13, 490.5, '2025-11-18', 2, 'Gaining'),
 ('Cow', 13, 500.0, '2026-02-20', 2, 'Good progress'),
 
--- Cow #14 - Pearl
+-- Cow #14 - Pearl (recorded_by: 3-Mike Wilson, 2-Sarah Johnson)
 ('Cow', 14, 450.0, '2025-08-08', 3, 'Young heifer'),
 ('Cow', 14, 462.5, '2025-11-12', 2, 'Growing well'),
 ('Cow', 14, 475.0, '2026-02-16', 2, 'Ready for breeding'),
 
--- Cow #15 - Misty
+-- Cow #15 - Misty (recorded_by: 2-Sarah Johnson, 3-Mike Wilson)
 ('Cow', 15, 520.5, '2025-08-18', 2, 'Ayrshire'),
 ('Cow', 15, 530.0, '2025-11-22', 3, 'Holding'),
 ('Cow', 15, 540.5, '2026-02-24', 2, 'Pregnant'),
 
--- Cow #16 - Bella 2
+-- Cow #16 - Bella 2 (recorded_by: 2-Sarah Johnson, 6-Lisa Davis)
 ('Cow', 16, 380.0, '2025-08-20', 2, 'Heifer'),
 ('Cow', 16, 405.0, '2025-11-25', 6, 'Growing fast'),
 ('Cow', 16, 430.0, '2026-02-26', 2, 'Almost breeding weight'),
 
--- Cow #17 - Daisy Jr
+-- Cow #17 - Daisy Jr (recorded_by: 3-Mike Wilson, 2-Sarah Johnson)
 ('Cow', 17, 360.0, '2025-08-22', 3, 'Yearling'),
 ('Cow', 17, 385.0, '2025-11-26', 2, 'Good growth'),
 ('Cow', 17, 410.0, '2026-02-28', 2, 'Developing well'),
 
--- Cow #18 - Molly Jr
+-- Cow #18 - Molly Jr (recorded_by: 2-Sarah Johnson, 3-Mike Wilson)
 ('Cow', 18, 340.0, '2025-08-25', 2, 'Young stock'),
 ('Cow', 18, 365.0, '2025-11-28', 3, 'On track'),
 ('Cow', 18, 390.0, '2026-03-02', 2, 'Growing steadily'),
@@ -1687,82 +1591,82 @@ INSERT INTO Weight_History (animal_type, animal_id, weight, recorded_date, recor
 -- ============================================
 -- CALVES (14 calves - progressive weights)
 -- ============================================
--- Calf #1
+-- Calf #1 (recorded_by: 3-Mike Wilson, 2-Sarah Johnson, 3-Mike Wilson, 2-Sarah Johnson)
 ('Calf', 1, 42.5, '2025-12-05', 3, 'Birth weight - female'),
 ('Calf', 1, 58.0, '2026-01-05', 2, '1 month - doing well'),
 ('Calf', 1, 72.5, '2026-02-05', 3, '2 months - healthy'),
 ('Calf', 1, 86.0, '2026-03-05', 2, '3 months - good gain'),
 
--- Calf #2
+-- Calf #2 (recorded_by: 2-Sarah Johnson, 3-Mike Wilson, 2-Sarah Johnson, 3-Mike Wilson)
 ('Calf', 2, 45.0, '2025-12-08', 2, 'Birth weight - male'),
 ('Calf', 2, 61.5, '2026-01-08', 3, '1 month - strong'),
 ('Calf', 2, 77.0, '2026-02-08', 2, '2 months - excellent'),
 ('Calf', 2, 92.0, '2026-03-08', 3, '3 months - top of group'),
 
--- Calf #3
+-- Calf #3 (recorded_by: 2-Sarah Johnson, 6-Lisa Davis, 2-Sarah Johnson, 3-Mike Wilson)
 ('Calf', 3, 38.0, '2025-12-12', 2, 'Birth weight - female'),
 ('Calf', 3, 53.5, '2026-01-12', 6, '1 month - small but healthy'),
 ('Calf', 3, 68.5, '2026-02-12', 2, '2 months - catching up'),
 ('Calf', 3, 83.0, '2026-03-12', 3, '3 months - good progress'),
 
--- Calf #4
+-- Calf #4 (recorded_by: 3-Mike Wilson, 2-Sarah Johnson, 2-Sarah Johnson, 3-Mike Wilson)
 ('Calf', 4, 41.5, '2025-12-15', 3, 'Birth weight - female'),
 ('Calf', 4, 57.0, '2026-01-15', 2, '1 month - healthy'),
 ('Calf', 4, 72.5, '2026-02-15', 2, '2 months - good'),
 ('Calf', 4, 87.5, '2026-03-15', 3, '3 months - on target'),
 
--- Calf #5
+-- Calf #5 (recorded_by: 2-Sarah Johnson, 3-Mike Wilson, 2-Sarah Johnson, 2-Sarah Johnson)
 ('Calf', 5, 44.0, '2025-11-18', 2, 'Birth weight - male - SOLD'),
 ('Calf', 5, 60.5, '2025-12-18', 3, '1 month - strong'),
 ('Calf', 5, 76.5, '2026-01-18', 2, '2 months - excellent'),
 ('Calf', 5, 92.0, '2026-02-18', 2, '3 months - sold at this weight'),
 
--- Calf #6
+-- Calf #6 (recorded_by: 3-Mike Wilson, 2-Sarah Johnson, 6-Lisa Davis, 2-Sarah Johnson)
 ('Calf', 6, 43.0, '2025-12-01', 3, 'Birth weight - female'),
 ('Calf', 6, 59.0, '2026-01-01', 2, '1 month - healthy'),
 ('Calf', 6, 74.5, '2026-02-01', 6, '2 months - good gain'),
 ('Calf', 6, 89.5, '2026-03-01', 2, '3 months - potential replacement'),
 
--- Calf #7
+-- Calf #7 (recorded_by: 2-Sarah Johnson, 3-Mike Wilson, 2-Sarah Johnson, 2-Sarah Johnson)
 ('Calf', 7, 40.5, '2025-12-15', 2, 'Birth weight - female'),
 ('Calf', 7, 56.0, '2026-01-15', 3, '1 month - doing well'),
 ('Calf', 7, 71.5, '2026-02-15', 2, '2 months - healthy'),
 ('Calf', 7, 86.5, '2026-03-15', 2, '3 months - good confirmation'),
 
--- Calf #8
+-- Calf #8 (recorded_by: 3-Mike Wilson, 2-Sarah Johnson, 2-Sarah Johnson)
 ('Calf', 8, 46.0, '2026-01-05', 3, 'Birth weight - male'),
 ('Calf', 8, 62.5, '2026-02-05', 2, '1 month - big calf'),
 ('Calf', 8, 78.5, '2026-03-05', 2, '2 months - excellent growth'),
 
--- Calf #9
+-- Calf #9 (recorded_by: 2-Sarah Johnson, 3-Mike Wilson, 2-Sarah Johnson)
 ('Calf', 9, 42.0, '2026-01-20', 2, 'Birth weight - female'),
 ('Calf', 9, 58.5, '2026-02-20', 3, '1 month - healthy'),
 ('Calf', 9, 74.0, '2026-03-20', 2, '2 months - doing well'),
 
--- Calf #10
+-- Calf #10 (recorded_by: 2-Sarah Johnson, 3-Mike Wilson)
 ('Calf', 10, 39.5, '2026-02-01', 2, 'Birth weight - female'),
 ('Calf', 10, 55.0, '2026-03-01', 3, '1 month - gaining well'),
 
--- Calf #11
+-- Calf #11 (recorded_by: 2-Sarah Johnson, 3-Mike Wilson, 2-Sarah Johnson, 6-Lisa Davis, 2-Sarah Johnson)
 ('Calf', 11, 44.5, '2025-10-15', 2, 'Birth weight - male'),
 ('Calf', 11, 62.0, '2025-11-15', 3, '1 month - strong'),
 ('Calf', 11, 79.5, '2025-12-15', 2, '2 months - excellent'),
 ('Calf', 11, 96.0, '2026-01-15', 6, '3 months - top calf'),
 ('Calf', 11, 112.0, '2026-02-15', 2, '4 months - bull potential'),
 
--- Calf #12
+-- Calf #12 (recorded_by: 3-Mike Wilson, 2-Sarah Johnson, 2-Sarah Johnson, 3-Mike Wilson)
 ('Calf', 12, 41.0, '2025-11-10', 3, 'Birth weight - female'),
 ('Calf', 12, 58.5, '2025-12-10', 2, '1 month - healthy'),
 ('Calf', 12, 75.5, '2026-01-10', 2, '2 months - good'),
 ('Calf', 12, 92.0, '2026-02-10', 3, '3 months - replacement quality'),
 
--- Calf #13
+-- Calf #13 (recorded_by: 2-Sarah Johnson, 3-Mike Wilson, 2-Sarah Johnson, 2-Sarah Johnson)
 ('Calf', 13, 43.5, '2025-12-20', 2, 'Birth weight - female'),
 ('Calf', 13, 60.0, '2026-01-20', 3, '1 month - healthy'),
 ('Calf', 13, 76.5, '2026-02-20', 2, '2 months - good gain'),
 ('Calf', 13, 92.5, '2026-03-20', 2, '3 months - excellent'),
 
--- Calf #14
+-- Calf #14 (recorded_by: 3-Mike Wilson, 2-Sarah Johnson, 2-Sarah Johnson)
 ('Calf', 14, 40.0, '2026-01-25', 3, 'Birth weight - female'),
 ('Calf', 14, 56.5, '2026-02-25', 2, '1 month - healthy'),
 ('Calf', 14, 72.5, '2026-03-25', 2, '2 months - on track');
@@ -2381,8 +2285,7 @@ INSERT INTO Feed_Formula (formula_name, pen_type, production_stage, total_kg_per
 -- SPECIALTY FORMULAS
 -- ============================================
 ('Hospital Pen Recovery', 'Dry', 'Special Needs', 15.0, 0.91, 1),
-('Bull Maintenance', 'Dry', 'Maintenance', 14.5, 0.62, 1),
-('Show Animal Premium', 'Milking', 'Special', 22.0, 0.95, 1);
+('Bull Maintenance', 'Dry', 'Maintenance', 14.5, 0.62, 1);
 
 -- Insert feed formula detail records for 15 formulas
 INSERT INTO Feed_Formula_Detail (formula_id, feed_id, percentage, kg_per_animal) VALUES
@@ -2592,3 +2495,58 @@ FROM MonthlyIncome i
 FULL OUTER JOIN MonthlyExpense e ON i.Year = e.Year AND i.Month = e.Month
 WHERE COALESCE(i.Year, e.Year) = 2026
 ORDER BY Year, Month;
+
+
+
+
+
+-- Create views for easier Power BI reporting
+GO
+CREATE VIEW vw_CowProductivity AS
+SELECT 
+    c.cow_id,
+    c.cow_name,
+    c.breed,
+    p.pen_name,
+    p.pen_type,
+    AVG(mp.milk_liters) as avg_daily_milk,
+    SUM(mp.milk_liters) as total_milk_30d,
+    (SELECT TOP 1 weight FROM Weight_History 
+     WHERE animal_type = 'Cow' AND animal_id = c.cow_id 
+     ORDER BY recorded_date DESC) as current_weight
+FROM Cow c
+LEFT JOIN Pen p ON c.pen_id = p.pen_id
+LEFT JOIN milk_production mp ON c.cow_id = mp.cow_id 
+    AND mp.record_date >= DATEADD(day, -30, GETDATE())
+WHERE c.status = 'Active'
+GROUP BY c.cow_id, c.cow_name, c.breed, p.pen_name, p.pen_type;
+GO
+
+CREATE VIEW vw_DailyFarmSummary AS
+SELECT 
+    CAST(mp.record_date AS DATE) as date,
+    COUNT(DISTINCT mp.cow_id) as milking_cows,
+    SUM(mp.milk_liters) as total_milk,
+    AVG(mp.milk_liters) as avg_milk_per_cow,
+    ISNULL(SUM(ms.total_amount), 0) as milk_revenue,
+    ISNULL(SUM(e.amount), 0) as daily_expenses
+FROM milk_production mp
+LEFT JOIN Milk_Sale ms ON mp.record_date = ms.sale_date
+LEFT JOIN Expense e ON mp.record_date = e.expense_date
+GROUP BY mp.record_date;
+
+
+
+
+
+SELECT 'Staff' as TableName, COUNT(*) as Row_Count FROM Staff
+UNION ALL SELECT 'Customer', COUNT(*) FROM Customer
+UNION ALL SELECT 'Vendor', COUNT(*) FROM Vendor
+UNION ALL SELECT 'Cow', COUNT(*) FROM Cow
+UNION ALL SELECT 'Bull', COUNT(*) FROM Bull
+UNION ALL SELECT 'Calf', COUNT(*) FROM Calf
+UNION ALL SELECT 'milk_production', COUNT(*) FROM milk_production
+UNION ALL SELECT 'Expense', COUNT(*) FROM Expense
+UNION ALL SELECT 'Income', COUNT(*) FROM Income
+UNION ALL SELECT 'Weight_History', COUNT(*) FROM Weight_History
+ORDER BY TableName;
